@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAMAI - Android App Store</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --star: #fbbf24;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+
+        header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo { font-size: 1.5rem; font-weight: 800; color: var(--primary); letter-spacing: 1px; cursor: pointer; }
+        .user-nav { display: flex; align-items: center; gap: 1rem; }
+        .username-display { font-size: 0.9rem; color: var(--text-muted); }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-secondary:hover { background: var(--border); }
+        .btn-danger { background: var(--danger); color: white; border: none; }
+        .btn-danger:hover { background: var(--danger-hover); }
+        .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+
+        .hero { text-align: center; margin-bottom: 2rem; }
+        .hero h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .hero p { color: var(--text-muted); margin-bottom: 1.5rem; }
+
+        .search-bar {
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto 2.5rem auto;
+            display: flex;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .app-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .app-header { display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+        .app-icon { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; background: var(--border); }
+        .app-info h3 { font-size: 1.1rem; margin-bottom: 0.1rem; }
+        .app-version { font-size: 0.8rem; color: var(--text-muted); }
+        .app-author-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 4px; }
+        .app-author { font-size: 0.8rem; color: var(--primary); cursor: pointer; }
+        .app-author:hover { text-decoration: underline; }
+
+        .app-desc {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            line-height: 1.4;
+            flex-grow: 1;
+        }
+
+        .app-rating-summary { font-size: 0.85rem; color: var(--star); margin-bottom: 1rem; }
+
+        .app-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+        .app-actions .btn { flex: 1; text-align: center; cursor: pointer; }
+
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 2rem;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 450px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-content h2 { margin-bottom: 1.2rem; text-align: center; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; color: var(--text-muted); }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 0.7rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1rem;
+        }
+        .form-group textarea { resize: vertical; height: 80px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem; }
+        .auth-switch { text-align: center; margin-top: 1rem; font-size: 0.9rem; color: var(--text-muted); }
+        .auth-switch span { color: var(--primary); cursor: pointer; font-weight: 600; }
+
+        .reviews-section { margin-top: 1rem; border-top: 1px dashed var(--border); padding-top: 0.8rem; }
+        .reviews-list { max-height: 120px; overflow-y: auto; margin-bottom: 0.8rem; font-size: 0.8rem; }
+        .review-item { margin-bottom: 0.5rem; background: var(--bg); padding: 0.4rem 0.6rem; border-radius: 6px; }
+        .review-user { font-weight: 600; color: var(--primary); }
+        
+        .loading { text-align: center; color: var(--text-muted); grid-column: 1 / -1; padding: 3rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo" onclick="resetSearch()">SAMAI</div>
+        <div class="user-nav" id="userNav"></div>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <h1>Android App Store</h1>
+            <p>Publish apps, discover APKs, follow developers, and share reviews.</p>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search apps by name or developer..." oninput="filterApps()">
+            </div>
+        </div>
+
+        <div id="appsGrid" class="apps-grid">
+            <div class="loading">Loading apps from Supabase...</div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <h2 id="authTitle">Login to SAMAI</h2>
+            <form id="authForm" onsubmit="handleAuthSubmit(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="authUsername" required placeholder="e.g. ulvizak">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="authPassword" required placeholder="••••••••">
+                </div>
+                <div class="modal-actions" style="flex-direction: column;">
+                    <button type="submit" class="btn" id="authSubmitBtn" style="width: 100%;">Login</button>
+                </div>
+                <div class="auth-switch" id="authSwitchText">
+                    Don't have an account? <span onclick="toggleAuthMode()">Register</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upload/Update Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Upload New App</h2>
+            <form id="appForm" onsubmit="handleAppFormSubmit(event)">
+                <input type="hidden" id="appId">
+                <div class="form-group">
+                    <label>App Name</label>
+                    <input type="text" id="appTitle" required placeholder="e.g. My Game">
+                </div>
+                <div class="form-group">
+                    <label>Version</label>
+                    <input type="text" id="appVersion" required placeholder="e.g. 1.0.0">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="appDesc" required placeholder="App description..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>App Icon (Image)</label>
+                    <input type="file" id="appIconFile" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Android APK File</label>
+                    <input type="file" id="appApkFile" accept=".apk">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('uploadModal')">Cancel</button>
+                    <button type="submit" class="btn" id="saveBtn">Publish App</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="reviewModal" class="modal">
+        <div class="modal-content">
+            <h2>Write a Review</h2>
+            <form onsubmit="submitReview(event)">
+                <input type="hidden" id="reviewAppId">
+                <div class="form-group">
+                    <label>Rating (1 to 5 Stars)</label>
+                    <select id="reviewRating">
+                        <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+                        <option value="4">⭐⭐⭐⭐ (4/5)</option>
+                        <option value="3">⭐⭐⭐ (3/5)</option>
+                        <option value="2">⭐⭐ (2/5)</option>
+                        <option value="1">⭐ (1/5)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Review Comment</label>
+                    <textarea id="reviewComment" required placeholder="Write your thoughts..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('reviewModal')">Cancel</button>
+                    <button type="submit" class="btn">Post Review</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://xhjkushxjkilhnfisvbu.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhoamt1c2h4amtpbGhuZmlzdmJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1MjIwNDQsImV4cCI6MjEwNjA5ODA0NH0.4Wpaq5ruSg-5WaYfmrKRRR0rhrET1tvWCFsZDIEv1x8';
+
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let isRegistering = false;
+        let currentUser = null;
+        let allApps = [];
+        let allReviews = [];
+        let allFollows = [];
+
+        async function init() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) currentUser = session.user;
+            updateNavbar();
+            await loadAppData();
+        }
+
+        async function loadAppData() {
+            const [appsRes, reviewsRes, followsRes] = await Promise.all([
+                _supabase.from('apps').select('*').order('created_at', { ascending: false }),
+                _supabase.from('reviews').select('*'),
+                _supabase.from('follows').select('*')
+            ]);
+
+            allApps = appsRes.data || [];
+            allReviews = reviewsRes.data || [];
+            allFollows = followsRes.data || [];
+
+            renderApps(allApps);
+        }
+
+        function updateNavbar() {
+            const nav = document.getElementById('userNav');
+            if (currentUser) {
+                const username = currentUser.user_metadata?.username || 'User';
+                nav.innerHTML = `
+                    <span class="username-display">@${escapeHtml(username)}</span>
+                    <button class="btn" onclick="openUploadModal()">+ Upload App</button>
+                    <button class="btn btn-secondary btn-danger" onclick="logout()">Logout</button>
+                `;
+            } else {
+                nav.innerHTML = `<button class="btn" onclick="openAuthModal(false)">Login / Register</button>`;
+            }
+        }
+
+        function renderApps(appsToRender) {
+            const grid = document.getElementById('appsGrid');
+            const currentUsername = currentUser?.user_metadata?.username;
+
+            if (appsToRender.length === 0) {
+                grid.innerHTML = `<div class="loading">No apps found.</div>`;
+                return;
+            }
+
+            grid.innerHTML = appsToRender.map(app => {
+                const appReviews = allReviews.filter(r => r.app_id === app.id);
+                const avgRating = appReviews.length ? (appReviews.reduce((sum, r) => sum + r.rating, 0) / appReviews.length).toFixed(1) : 'No ratings';
+                const starDisplay = appReviews.length ? '⭐'.repeat(Math.round(avgRating)) + ` (${avgRating}/5)` : '⭐ New App';
+
+                const isFollowing = allFollows.some(f => f.follower === currentUsername && f.following === app.uploaded_by);
+                const showFollowBtn = currentUsername && currentUsername !== app.uploaded_by;
+                const isOwner = currentUsername === app.uploaded_by;
+                const safePath = encodeURIComponent(app.apk_url || '');
+
+                return `
+                    <div class="app-card">
+                        <div>
+                            <div class="app-header">
+                                <img src="${app.icon_url}" class="app-icon" alt="icon">
+                                <div class="app-info">
+                                    <h3>${escapeHtml(app.title)}</h3>
+                                    <span class="app-version">v${escapeHtml(app.version)}</span>
+                                    <div class="app-author-row">
+                                        <span class="app-author" onclick="filterByDeveloper('${escapeHtml(app.uploaded_by)}')">@${escapeHtml(app.uploaded_by)}</span>
+                                        ${showFollowBtn ? `<button class="btn btn-secondary btn-sm" onclick="toggleFollow('${escapeHtml(app.uploaded_by)}')">${isFollowing ? 'Unfollow' : 'Follow'}</button>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="app-desc">${escapeHtml(app.description)}</p>
+                            <div class="app-rating-summary">${starDisplay}</div>
+
+                            <div class="reviews-section">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                                    <span style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">Reviews (${appReviews.length})</span>
+                                    ${currentUser ? `<button class="btn btn-secondary btn-sm" onclick="openReviewModal(${app.id})">+ Review</button>` : ''}
+                                </div>
+                                <div class="reviews-list">
+                                    ${appReviews.length ? appReviews.map(r => `
+                                        <div class="review-item">
+                                            <span class="review-user">@${escapeHtml(r.username)}:</span> 
+                                            <span>${'⭐'.repeat(r.rating)}</span>
+                                            <p style="color:var(--text-muted);">${escapeHtml(r.comment)}</p>
+                                        </div>
+                                    `).join('') : '<div style="color:var(--text-muted); font-size:0.75rem;">No reviews yet. Be the first!</div>'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="app-actions">
+                            <button class="btn" onclick="downloadApk(event, '${safePath}', '${escapeHtml(app.title)}')">Download APK</button>
+                            ${isOwner ? `
+                                <button class="btn btn-secondary btn-sm" onclick="openUpdateModal(${app.id}, '${escapeHtml(app.title)}', '${escapeHtml(app.version)}', '${escapeHtml(app.description)}')">Update</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteApp(${app.id})">Delete</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function downloadApk(event, apkPathEncoded, appTitle) {
+            const btn = event.target;
+            const originalText = btn.innerText;
+            try {
+                btn.innerText = 'Preparing...';
+                btn.disabled = true;
+
+                const filePath = decodeURIComponent(apkPathEncoded);
+
+                // Request a secure signed download token valid for 60 seconds using exact storage path
+                const { data, error } = await _supabase.storage
+                    .from('app-assets')
+                    .createSignedUrl(filePath, 60);
+
+                if (error || !data?.signedUrl) throw (error || new Error('Failed to create signed URL'));
+
+                const a = document.createElement('a');
+                a.href = data.signedUrl;
+                a.download = `${appTitle.replace(/[^a-zA-Z0-9]/g, '_')}.apk`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+            } catch (err) {
+                console.error('Download error:', err);
+                alert('Could not download file: ' + (err.message || err));
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function filterApps() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allApps.filter(a => 
+                a.title.toLowerCase().includes(query) || 
+                a.uploaded_by.toLowerCase().includes(query) ||
+                a.description.toLowerCase().includes(query)
+            );
+            renderApps(filtered);
+        }
+
+        function filterByDeveloper(devName) {
+            document.getElementById('searchInput').value = devName;
+            filterApps();
+        }
+
+        function resetSearch() {
+            document.getElementById('searchInput').value = '';
+            renderApps(allApps);
+        }
+
+        async function toggleFollow(developerName) {
+            if (!currentUser) return openAuthModal(false);
+            const follower = currentUser.user_metadata?.username;
+
+            const existing = allFollows.find(f => f.follower === follower && f.following === developerName);
+            if (existing) {
+                await _supabase.from('follows').delete().eq('id', existing.id);
+            } else {
+                await _supabase.from('follows').insert([{ follower, following: developerName }]);
+            }
+            const { data } = await _supabase.from('follows').select('*');
+            allFollows = data || [];
+            renderApps(allApps);
+        }
+
+        async function deleteApp(appId) {
+            if (!confirm('Are you sure you want to delete this app?')) return;
+            const { error } = await _supabase.from('apps').delete().eq('id', appId);
+            if (error) {
+                alert('Error deleting app: ' + error.message);
+            } else {
+                loadAppData();
+            }
+        }
+
+        function openReviewModal(appId) {
+            if (!currentUser) return openAuthModal(false);
+            document.getElementById('reviewAppId').value = appId;
+            document.getElementById('reviewComment').value = '';
+            document.getElementById('reviewModal').classList.add('active');
+        }
+
+        async function submitReview(e) {
+            e.preventDefault();
+            const appId = document.getElementById('reviewAppId').value;
+            const rating = parseInt(document.getElementById('reviewRating').value);
+            const comment = document.getElementById('reviewComment').value;
+            const username = currentUser.user_metadata?.username;
+
+            const { error } = await _supabase.from('reviews').insert([{ app_id: appId, username, rating, comment }]);
+            if (error) alert(error.message);
+            else {
+                closeModal('reviewModal');
+                const { data } = await _supabase.from('reviews').select('*');
+                allReviews = data || [];
+                renderApps(allApps);
+            }
+        }
+
+        function openAuthModal(register = false) {
+            isRegistering = register;
+            document.getElementById('authTitle').innerText = isRegistering ? 'Register on SAMAI' : 'Login to SAMAI';
+            document.getElementById('authSubmitBtn').innerText = isRegistering ? 'Create Account' : 'Login';
+            document.getElementById('authSwitchText').innerHTML = isRegistering 
+                ? 'Already have an account? <span onclick="toggleAuthMode()">Login</span>'
+                : "Don't have an account? <span onclick=\"toggleAuthMode()\">Register</span>";
+            document.getElementById('authForm').reset();
+            document.getElementById('authModal').classList.add('active');
+        }
+
+        function toggleAuthMode() {
+            isRegistering = !isRegistering;
+            openAuthModal(isRegistering);
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('authUsername').value.trim().toLowerCase();
+            const password = document.getElementById('authPassword').value;
+            const syntheticEmail = `${username}@samai.store`;
+            const submitBtn = document.getElementById('authSubmitBtn');
+            submitBtn.disabled = true;
+
+            try {
+                if (isRegistering) {
+                    const { data, error } = await _supabase.auth.signUp({
+                        email: syntheticEmail, password: password, options: { data: { username } }
+                    });
+                    if (error) throw error;
+                    if (data.session) {
+                        currentUser = data.session.user;
+                    } else {
+                        alert('Account registered! Please log in now.');
+                        toggleAuthMode();
+                        return;
+                    }
+                } else {
+                    const { data, error } = await _supabase.auth.signInWithPassword({ email: syntheticEmail, password });
+                    if (error) throw error;
+                    currentUser = data.user;
+                }
+                closeModal('authModal');
+                updateNavbar();
+                loadAppData();
+            } catch (err) {
+                alert('Authentication Error: ' + err.message);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function logout() {
+            await _supabase.auth.signOut();
+            currentUser = null;
+            updateNavbar();
+            loadAppData();
+        }
+
+        function openUploadModal() {
+            if (!currentUser) return openAuthModal(false);
+            document.getElementById('modalTitle').innerText = 'Upload New App';
+            document.getElementById('saveBtn').innerText = 'Publish App';
+            document.getElementById('appId').value = '';
+            document.getElementById('appForm').reset();
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        function openUpdateModal(id, title, version, desc) {
+            document.getElementById('modalTitle').innerText = `Update ${title}`;
+            document.getElementById('saveBtn').innerText = 'Save Changes';
+            document.getElementById('appId').value = id;
+            document.getElementById('appTitle').value = title;
+            document.getElementById('appVersion').value = version;
+            document.getElementById('appDesc').value = desc;
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        async function handleAppFormSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('appId').value;
+            const title = document.getElementById('appTitle').value;
+            const version = document.getElementById('appVersion').value;
+            const description = document.getElementById('appDesc').value;
+            const iconFile = document.getElementById('appIconFile').files[0];
+            const apkFile = document.getElementById('appApkFile').files[0];
+            const username = currentUser.user_metadata?.username;
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+
+            try {
+                let iconUrl = null;
+                let apkPath = null;
+
+                if (iconFile) {
+                    saveBtn.innerText = 'Uploading Icon...';
+                    const path = `icons/${Date.now()}_${iconFile.name}`;
+                    const { error: iconErr } = await _supabase.storage.from('app-assets').upload(path, iconFile);
+                    if (iconErr) throw iconErr;
+                    iconUrl = _supabase.storage.from('app-assets').getPublicUrl(path).data.publicUrl;
+                }
+
+                if (apkFile) {
+                    saveBtn.innerText = 'Uploading APK...';
+                    apkPath = `apks/${Date.now()}_${apkFile.name}`;
+                    const { error: apkErr } = await _supabase.storage.from('app-assets').upload(apkPath, apkFile);
+                    if (apkErr) throw apkErr;
+                }
+
+                saveBtn.innerText = 'Saving...';
+
+                if (id) {
+                    const updateData = { title, version, description };
+                    if (iconUrl) updateData.icon_url = iconUrl;
+                    if (apkPath) updateData.apk_url = apkPath; // stores clean storage path
+                    await _supabase.from('apps').update(updateData).eq('id', id);
+                } else {
+                    if (!iconUrl || !apkPath) throw new Error('Both icon and APK files are required!');
+                    await _supabase.from('apps').insert([{ title, version, description, icon_url: iconUrl, apk_url: apkPath, uploaded_by: username }]);
+                }
+
+                closeModal('uploadModal');
+                loadAppData();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                saveBtn.innerText = 'Publish App';
+                saveBtn.disabled = false;
+            }
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        init();
+    </script>
+</body>
+</html>
